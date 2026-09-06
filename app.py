@@ -69,13 +69,20 @@ try:
 
     with col2:
         st.subheader("📍 Mapa de Localización")
-        # Mapa con color basado en el precio
-        fig_map = px.scatter_mapbox(df_selection, lat="latitude", lon="longitude", color="price", 
-                                     size="price", color_continuous_scale=px.colors.cyclical.IceFire, 
-                                     size_max=15, zoom=10, mapbox_style="carto-positron",
-                                     hover_name="neighbourhood")
-        fig_map.update_layout(margin={"r":0,"t":0,"l":0,"b":0})
-        st.plotly_chart(fig_map, use_container_width=True)
+        try:
+            # Intentamos la versión más compatible de Plotly
+            fig_map = px.scatter_map(df_selection, 
+                                     lat="latitude", 
+                                     lon="longitude", 
+                                     color="price", 
+                                     size="price", 
+                                     color_continuous_scale=px.colors.cyclical.IceFire, 
+                                     size_max=15, 
+                                     zoom=10, 
+                                     title="Mapa de Precios")
+            st.plotly_chart(fig_map, use_container_width=True)
+        except Exception:
+            st.map(df_selection)
 
     # --- SECCIÓN EXTRA ---
     st.subheader("📈 Top 10 Barrios por cantidad de ofertas")
