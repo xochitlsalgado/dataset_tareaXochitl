@@ -8,7 +8,7 @@ st.title("🚀 Airbnb Data Dashboard")
 
 # Carga de datos
 try:
-    df = pd.read_csv("airbnb_data.csv") # El nombre debe ser igual al de tu archivo
+    df = pd.read_csv("AB_NYC_2019.csv") 
     
     # Sidebar para filtros
     st.sidebar.header("Filtros")
