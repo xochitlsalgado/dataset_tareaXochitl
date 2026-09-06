@@ -2,47 +2,35 @@ import streamlit as st
 import pandas as pd
 import plotly.express as px
 
-# 1. Configuración de la página (Ancho completo)
-st.set_page_config(page_title="Airbnb Premium Dashboard", layout="wide")
+# 1. Configuración de la página
+st.set_page_config(page_title="Airbnb Data Analytics", layout="wide")
 
-# Estilo personalizado con Markdown para que se vea más pro
-st.markdown("""
-    <style>
-    .main {
-        background-color: #f5f5f5;
-    }
-    .stMetric {
-        background-color: #ffffff;
-        padding: 15px;
-        border-radius: 10px;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-    }
-    </style>
-    """, unsafe_allow_html=True)
-
-st.title("🏙️ Airbnb Data Analysis Pro")
+st.title("Airbnb Dataset")
+st.markdown("Análisis visual de alojamientos y precios")
 st.markdown("---")
 
 # Carga de datos
 @st.cache_data
 def load_data():
-    df = pd.read_csv("AB_NYC_2019.csv")
+    df = pd.read_csv("AB_NYC_2019.csv")  
     return df
 
 try:
     df = load_data()
 
-    # --- BARRA LATERAL (FILTROS) ---
-    st.sidebar.image("https://upload.wikimedia.org/wikipedia/commons/thumb/6/69/Airbnb_Logo_B%C3%A9lo.svg/2560px-Airbnb_Logo_B%C3%A9lo.svg.png", width=150)
+    # --- BARRA LATERAL (Filtros) ---
     st.sidebar.header("Panel de Filtros")
     
-    # Filtro de Precio con Slider
+    # Filtro de Precio
     min_price = int(df["price"].min())
     max_price = int(df["price"].max())
-    price_range = st.sidebar.slider("Rango de Precio ($)", min_price, max_price, (min_price, 500))
+    price_range = st.sidebar.slider("Rango de Precio ($)", min_price, max_price, (min_price, 1000))
 
     # Filtro de Barrios
-    barrios = st.sidebar.multiselect("Selecciona Barrios:", options=df["neighbourhood"].unique(), default=df["neighbourhood"].unique()[:3])
+    barrios_disponibles = df["neighbourhood"].unique()
+    barrios = st.sidebar.multiselect("Selecciona Barrios:", 
+                                     options=barrios_disponibles, 
+                                     default=barrios_disponibles[:5])
 
     # Aplicar filtros
     df_selection = df[(df["price"] >= price_range[0]) & 
@@ -51,49 +39,52 @@ try:
 
     # --- MÉTRICAS TOP ---
     col_a, col_b, col_c, col_d = st.columns(4)
-    col_a.metric("Total Listings", len(df_selection))
+    col_a.metric("Total Alojamientos", len(df_selection))
     col_b.metric("Precio Promedio", f"${df_selection['price'].mean():.2f}")
-    col_c.metric("Barrio más caro", df_selection.groupby("neighbourhood")["price"].mean().idxmax())
-    col_d.metric("Disponibilidad Prom.", f"{int(df_selection['availability_365'].mean())} días")
+    
+    if not df_selection.empty:
+        col_c.metric("Barrio más caro", df_selection.groupby("neighbourhood")["price"].mean().idxmax())
+    else:
+        col_c.metric("Barrio más caro", "N/A")
+        
+    col_d.metric("Reseñas Totales", f"{int(df_selection['number_of_reviews'].sum())}")
 
     st.markdown("---")
 
-    # --- GRÁFICAS ---
-    col1, col2 = st.columns([1, 1])
+    # --- GRÁFICAS PRINCIPALES ---
+    col1, col2 = st.columns(2)
 
     with col1:
-        st.subheader("💰 Distribución de Precios por Tipo")
+        st.subheader(" Distribución de Precios")
+        # Gráfica de caja para ver la dispersión de precios
         fig_box = px.box(df_selection, x="room_type", y="price", color="room_type",
-                         points="all", title="Precios vs Tipo de Habitación")
+                         title="Análisis de Precios por Tipo de Habitación",
+                         template="plotly_dark")
         st.plotly_chart(fig_box, use_container_width=True)
 
     with col2:
-        st.subheader("📍 Mapa de Localización")
-        try:
-            # Intentamos la versión más compatible de Plotly
-            fig_map = px.scatter_map(df_selection, 
-                                     lat="latitude", 
-                                     lon="longitude", 
-                                     color="price", 
-                                     size="price", 
-                                     color_continuous_scale=px.colors.cyclical.IceFire, 
-                                     size_max=15, 
-                                     zoom=10, 
-                                     title="Mapa de Precios")
-            st.plotly_chart(fig_map, use_container_width=True)
-        except Exception:
-            st.map(df_selection)
+        st.subheader("🏠 Tipos de Habitación")
+        # NUEVA GRÁFICA: Gráfica de pastel en lugar del mapa
+        fig_pie = px.pie(df_selection, names="room_type", 
+                         title="Proporción de Oferta por Tipo",
+                         hole=0.4, # Hace que sea tipo "Donut" que se ve más moderno
+                         template="plotly_dark",
+                         color_discrete_sequence=px.colors.sequential.RdBu)
+        st.plotly_chart(fig_pie, use_container_width=True)
 
-    # --- SECCIÓN EXTRA ---
-    st.subheader("📈 Top 10 Barrios por cantidad de ofertas")
-    top_barrios = df_selection["neighbourhood"].value_counts().head(10).reset_index()
-    top_barrios.columns = ["Barrio", "Cantidad"]
-    fig_bar = px.bar(top_barrios, x="Barrio", y="Cantidad", color="Cantidad", color_continuous_scale='Viridis')
-    st.plotly_chart(fig_bar, use_container_width=True)
+    # --- GRÁFICA INFERIOR ---
+    st.subheader("📈 Popularidad: Precio vs Número de Reseñas")
+    # Gráfica de dispersión para ver si lo más caro es lo más reseñado
+    fig_scatter = px.scatter(df_selection, x="price", y="number_of_reviews", 
+                             color="room_type", size="availability_365",
+                             hover_name="neighbourhood",
+                             title="Relación entre Precio y Cantidad de Reseñas",
+                             template="plotly_dark")
+    st.plotly_chart(fig_scatter, use_container_width=True)
 
-    # Mostrar tabla con estilo
-    with st.expander("👀 Ver datos crudos filtrados"):
-        st.dataframe(df_selection)
+    # Tabla de datos al final
+    with st.expander(" Ver tabla de datos filtrados"):
+        st.write(df_selection)
 
 except Exception as e:
-    st.error(f"Error al cargar la visualización: {e}")
+    st.error(f"Error al cargar la aplicación: {e}")
